@@ -1,3 +1,4 @@
+import csv
 from enum import Enum
 from typing import Any, List
 
@@ -51,10 +52,8 @@ def _process_row(row: List[Any], primary_user: str) -> float:
 
 def _load_and_preprocess(csv_file: str) -> List[str]:
     with open(csv_file) as f:
-        data = f.read()
+        data = list(csv.reader(f))[1:]
 
-    data = data.split("\n")[1:-1]
-    data = [d.split(",") for d in data]
     for i in range(len(data)):
         data_row = data[i]
         _to_enum(data_row, Header.TYPE, ChargeType)
@@ -65,7 +64,7 @@ def _load_and_preprocess(csv_file: str) -> List[str]:
     return data
 
 
-def _to_enum(row: List[str], header: Header, klass) -> None:  
+def _to_enum(row: List[str], header: Header, klass) -> None:
     item = row[header.value]
     item = item.upper()
     item = item.replace(" ", "_")
