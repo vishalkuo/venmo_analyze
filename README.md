@@ -8,7 +8,7 @@ Analyze your venmo transactions exported in a CSV statement.
 2. 
 ```
 git clone https://github.com/vishalkuo/venmo_analyze.git
-jupyter notebook Venmo\ Analyze.ipynb 
+jupyter notebook venmo_analyze.ipynb 
 ```
 3. Place the CSV file in the same relative directory
 4. Run all cells.
