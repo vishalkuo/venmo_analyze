@@ -1,6 +1,8 @@
 import csv
+from collections import defaultdict
 from enum import Enum
-from typing import Any, List
+from typing import Any, Dict, List
+import json
 
 class ChargeType(Enum):
     PAYMENT = 1
@@ -28,13 +30,15 @@ class Header(Enum):
 def process_csv(primary_user: str, csv_file: str) -> None:
     data = _load_and_preprocess(csv_file)
     total = 0
+    friend_dict = defaultdict(float)
     for row in data:
-        total += _process_row(row, primary_user)
+        total += _process_row(row, primary_user, friend_dict)
 
+    print(json.dumps(friend_dict, indent=4))
     print(f"NET TRANSACTIONS: {round(total, 2)}")
 
 
-def _process_row(row: List[Any], primary_user: str) -> float:
+def _process_row(row: List[Any], primary_user: str, friend_dict: Dict[str, float]) -> float:
     # -ve is money out, +ve is money in
     if row[Header.TYPE.value] == ChargeType.STANDARD_TRANSFER:
         return 0
@@ -46,6 +50,11 @@ def _process_row(row: List[Any], primary_user: str) -> float:
     fees = row[Header.FEE.value]
     if fees:
         dlr_amt -= fees
+
+    if row[Header.TYPE.value] == ChargeType.CHARGE or dlr_amt < 0:
+        friend_dict[row[Header.TO.value]] += dlr_amt
+    else:
+        friend_dict[row[Header.FROM.value]] += dlr_amt
     
     return dlr_amt
 
