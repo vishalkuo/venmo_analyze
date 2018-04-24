@@ -4,6 +4,8 @@ from enum import Enum
 from typing import Any, Dict, List
 import json
 
+import click
+
 class ChargeType(Enum):
     PAYMENT = 1
     STANDARD_TRANSFER = 2
@@ -27,18 +29,32 @@ class Header(Enum):
     FUND_SOURCE = 9
     DEST = 10
 
-def process_csv(primary_user: str, csv_file: str) -> None:
-    data = _load_and_preprocess(csv_file)
-    total = 0
-    friend_dict = defaultdict(float)
+class TransactionData(Enum):
+    NET_AMT = 0
+    GROUP_BY_FRIENDS = 1
+    GROUP_BY_DATE = 2
+
+@click.group()
+def cli():
+    pass
+
+@cli.command()
+@click.argument("report")
+def analyze(report: str) -> None:
+    """Analyzes a CSV Venmo statement and outputs relevant transaction data"""
+    data = _load_and_preprocess(report)
+    data_dict = {
+        TransactionData.NET_AMT.name: 0,
+        TransactionData.GROUP_BY_FRIENDS.name: defaultdict(float),
+        TransactionData.GROUP_BY_DATE.name: defaultdict(float),
+    }
     for row in data:
-        total += _process_row(row, primary_user, friend_dict)
+        _process_row(row, data_dict)
 
-    print(json.dumps(friend_dict, indent=4))
-    print(f"NET TRANSACTIONS: {round(total, 2)}")
+    print(json.dumps(data_dict, indent=4))
 
 
-def _process_row(row: List[Any], primary_user: str, friend_dict: Dict[str, float]) -> float:
+def _process_row(row: List[Any], data_dict: Dict[str, float]) -> None:
     # -ve is money out, +ve is money in
     if row[Header.TYPE.value] == ChargeType.STANDARD_TRANSFER:
         return 0
@@ -51,12 +67,13 @@ def _process_row(row: List[Any], primary_user: str, friend_dict: Dict[str, float
     if fees:
         dlr_amt -= fees
 
+    friend_dict = data_dict[TransactionData.GROUP_BY_FRIENDS.name]
     if row[Header.TYPE.value] == ChargeType.CHARGE or dlr_amt < 0:
         friend_dict[row[Header.TO.value]] += dlr_amt
     else:
         friend_dict[row[Header.FROM.value]] += dlr_amt
     
-    return dlr_amt
+    data_dict[TransactionData.NET_AMT.name] += dlr_amt
 
 
 def _load_and_preprocess(csv_file: str) -> List[str]:
@@ -84,9 +101,9 @@ def _parse_dollar(row: List[str], header: Header) -> float:
     dlr_str = row[header.value]
     if not dlr_str:
         return 0
-    dlr_amt = float(dlr_str.split("$")[1])
+    dlr_amt = round(float(dlr_str.split("$")[1]), 2)
     row[header.value] = dlr_amt if dlr_str.startswith("+") else dlr_amt * -1
 
 
 if __name__ == "__main__":
-    process_csv("Vishal Kuo", "samples/download (1).csv")
+    cli()
