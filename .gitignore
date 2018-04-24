@@ -2,3 +2,4 @@ __pycache__/
 samples/*.csv
 env/
 .vscode/
+.ipynb_checkpoints/
