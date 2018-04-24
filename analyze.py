@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List
+from typing import Any, List
 
 class ChargeType(Enum):
     PAYMENT = 1
@@ -25,7 +25,29 @@ class Header(Enum):
     DEST = 10
 
 def process_csv(primary_user: str, csv_file: str) -> None:
-    csv = _load_and_preprocess(csv_file)
+    data = _load_and_preprocess(csv_file)
+    total = 0
+    for row in data:
+        total += _process_row(row, primary_user)
+
+    print(f"NET TRANSACTIONS: {round(total, 2)}")
+
+
+def _process_row(row: List[Any], primary_user: str) -> float:
+    # -ve is money out, +ve is money in
+    if row[Header.TYPE.value] == ChargeType.STANDARD_TRANSFER:
+        return 0
+
+    if row[Header.STATUS.value] != ChargeStatus.COMPLETE:
+        return 0
+
+    dlr_amt = row[Header.AMT.value]
+    fees = row[Header.FEE.value]
+    if fees:
+        dlr_amt -= fees
+    
+    return dlr_amt
+
 
 def _load_and_preprocess(csv_file: str) -> List[str]:
     with open(csv_file) as f:
@@ -35,20 +57,27 @@ def _load_and_preprocess(csv_file: str) -> List[str]:
     data = [d.split(",") for d in data]
     for i in range(len(data)):
         data_row = data[i]
-        to_enum(data_row, Header.TYPE, ChargeType)
-        to_enum(data_row, Header.STATUS, ChargeStatus)
-        data_row[Header.AMT] = parse_dollar(data_row[Header.AMT.value])
-        data_row[Header.FEE] = parse_dollar(data_row[Header.FEE.value])
+        _to_enum(data_row, Header.TYPE, ChargeType)
+        _to_enum(data_row, Header.STATUS, ChargeStatus)
+        _parse_dollar(data_row, Header.AMT)
+        _parse_dollar(data_row, Header.FEE)
+
+    return data
 
 
-def to_enum(row: List[str], header: Header, klass) -> None:  
+def _to_enum(row: List[str], header: Header, klass) -> None:  
     item = row[header.value]
     item = item.upper()
     item = item.replace(" ", "_")
     row[header.value] = klass[item]
 
-def parse_dollar(dlr_str: str) -> float:
-    pass
+
+def _parse_dollar(row: List[str], header: Header) -> float:
+    dlr_str = row[header.value]
+    if not dlr_str:
+        return 0
+    dlr_amt = float(dlr_str.split("$")[1])
+    row[header.value] = dlr_amt if dlr_str.startswith("+") else dlr_amt * -1
 
 
 if __name__ == "__main__":
